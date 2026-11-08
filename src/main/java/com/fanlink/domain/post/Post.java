@@ -14,7 +14,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
@@ -40,7 +39,12 @@ public class Post {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
+	/**
+	 * EAGER on purpose: PostResponse always needs the author's nickname/photo, and
+	 * open-in-view is off, so a LAZY proxy here throws LazyInitializationException
+	 * once the controller maps the entity after the transaction/session has closed.
+	 */
+	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "author_id", nullable = false)
 	private User author;
 
@@ -55,8 +59,7 @@ public class Post {
 	@Column(nullable = false)
 	private String title;
 
-	@Lob
-	@Column(nullable = false)
+	@Column(nullable = false, columnDefinition = "text")
 	private String content;
 
 	/** Per-unit face value in KRW. Required (and AI-verified) for TICKET posts. */
@@ -74,7 +77,14 @@ public class Post {
 	@Column(nullable = false)
 	private int viewCount = 0;
 
-	@OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+	/**
+	 * EAGER for the same open-in-view reason as author. SUBSELECT avoids the
+	 * classic join-fetch-collection-with-pagination Cartesian product/in-memory
+	 * paging warning on GET /api/posts: it issues one extra query per page instead
+	 * of joining the collection into the paginated row set.
+	 */
+	@OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+	@org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
 	@OrderBy("sortOrder ASC")
 	private List<PostImage> images = new ArrayList<>();
 
