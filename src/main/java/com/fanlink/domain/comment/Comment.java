@@ -35,7 +35,8 @@ public class Comment {
 	@JoinColumn(name = "post_id", nullable = false)
 	private Post post;
 
-	@ManyToOne(fetch = FetchType.LAZY)
+	/** EAGER: CommentResponse always needs the author's nickname/photo (see Post.author for why). */
+	@ManyToOne(fetch = FetchType.EAGER)
 	@JoinColumn(name = "author_id", nullable = false)
 	private User author;
 
